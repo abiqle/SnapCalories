@@ -1,73 +1,113 @@
-import { useState, useRef, useEffect } from 'react';
-import ImageUploader from './components/ImageUploader';
-import { classifyImage } from './utils/classifyImage';
+import { useState, useRef } from 'react';
+import './App.css';
 
 function App() {
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const [prediction, setPrediction] = useState(null);
-  const imgRef = useRef(null);
+  const [imageUrl, setImageUrl] = useState(null);
+  const [description, setDescription] = useState('');
+  const [calories, setCalories] = useState('');
+  const [loading, setLoading] = useState(false);
+  const imageRef = useRef(null);
 
-  const handleImageReady = (_file, url) => {
-    setPreviewUrl(url);
-    setPrediction(null); // reset old result
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+    setImageUrl(url);
+    setDescription('');
+    setCalories('');
   };
 
-  useEffect(() => {
-    const runClassification = async () => {
-      if (imgRef.current) {
-        const result = await classifyImage(imgRef.current);
-        setPrediction(result[0]); // top prediction
-      }
+  const getCalories = (desc) => {
+    const foodMap = {
+      banana: 89,
+      apple: 52,
+      pizza: 266,
+      burger: 295,
+      cake: 350,
+      'french fries': 312,
+      pasta: 131,
+      sandwich: 250,
+      rice: 130,
+      'ice cream': 207,
+      egg: 155,
+      'chicken curry': 240,
     };
 
-    if (previewUrl) {
-      setTimeout(runClassification, 500);
+    const lowerDesc = desc.toLowerCase();
+    for (const food in foodMap) {
+      if (lowerDesc.includes(food)) {
+        return foodMap[food];
+      }
     }
-  }, [previewUrl]);
+
+    return 'N/A';
+  };
+
+  const handlePredict = async () => {
+    if (!imageRef.current) return;
+
+    setLoading(true);
+    try {
+      const file = await fetch(imageUrl).then(res => res.blob());
+
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const res = await fetch('http://localhost:5000/predict', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      const desc = data.description || 'Unknown food';
+      setDescription(desc);
+      setCalories(getCalories(desc));
+    } catch (err) {
+      console.error('Prediction failed:', err);
+      setDescription('Error processing image');
+      setCalories('N/A');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setImageUrl(null);
+    setDescription('');
+    setCalories('');
+  };
 
   return (
-    <div style={{ padding: '20px', textAlign: 'center' }}>
+    <div className="container">
       <h1>🍽️ SnapCalories</h1>
-      <ImageUploader onImageReady={handleImageReady} />
-      {previewUrl && (
-        <img
-          src={previewUrl}
-          ref={imgRef}
-          alt="To classify"
-          style={{ display: 'none' }}
-        />
-      )}
-      {prediction && (
-        <div style={{ marginTop: '20px' }}>
-          <h3>🥗 Food Detected: {prediction.className}</h3>
-          <p>Confidence: {(prediction.probability * 100).toFixed(2)}%</p>
-          <p>Estimated Calories: {getEstimatedCalories(prediction.className)} kcal (approx)</p>
+
+      <div className="uploader">
+        <h2>Upload a Food Image</h2>
+        <input type="file" accept="image/*" onChange={handleFileChange} />
+
+        {imageUrl && (
+          <>
+            <img ref={imageRef} src={imageUrl} alt="Preview" className="preview" />
+            <div className="buttons">
+              <button onClick={handlePredict}>🔍 Detect</button>
+              <button onClick={handleReset}>♻️ Reset</button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {loading && <div className="loader">Detecting food...</div>}
+
+      {!loading && description && (
+        <div className="results">
+          <h3>🥗 Description: {description}</h3>
+          <p>Estimated Calories: {calories} kcal</p>
         </div>
       )}
     </div>
   );
 }
 
-function getEstimatedCalories(foodName) {
-  const caloriesMap = {
-    pizza: 266,
-    hamburger: 295,
-    apple: 52,
-    banana: 89,
-    cake: 350,
-    'french fries': 312,
-    pasta: 131,
-    rice: 130,
-    bread: 265,
-  };
-
-  for (let key in caloriesMap) {
-    if (foodName.toLowerCase().includes(key)) {
-      return caloriesMap[key];
-    }
-  }
-
-  return 'N/A';
-}
-
 export default App;
+  
