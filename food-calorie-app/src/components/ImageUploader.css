@@ -1,0 +1,20 @@
+.image-uploader {
+  border: 2px dashed #ccc;
+  padding: 20px;
+  text-align: center;
+  margin: 20px auto;
+  max-width: 400px;
+  background: #f9f9f9;
+  border-radius: 10px;
+}
+
+.image-uploader input {
+  margin-top: 10px;
+}
+
+.preview {
+  margin-top: 15px;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
